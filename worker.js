@@ -92,38 +92,40 @@ function metafieldsToMap(metafields = []) {
 // ─── Route handlers ───────────────────────────────────────────────────────────
 
 async function handleGetLabels(env, origin) {
-  // Try each handle until we find the collection
-  let collectionId = null;
-  for (const handle of COLLECTION_HANDLES) {
-    try {
-      const data = await shopifyRest(env, `custom_collections.json?handle=${handle}&fields=id,handle,title`);
-      if (data.custom_collections?.length) {
-        collectionId = data.custom_collections[0].id;
-        break;
-      }
-    } catch {}
-    try {
-      const data = await shopifyRest(env, `smart_collections.json?handle=${handle}&fields=id,handle,title`);
-      if (data.smart_collections?.length) {
-        collectionId = data.smart_collections[0].id;
-        break;
-      }
-    } catch {}
-  }
+  // COLLECTION_ID env var is the most reliable override — set it to the numeric
+  // Shopify collection ID from the admin URL: /admin/collections/<COLLECTION_ID>
+  let collectionId = env.COLLECTION_ID || null;
 
   if (!collectionId) {
-    return json({
-      products: [],
-      error: 'Collection not found. Visit /debug/collections to see available handles.',
-    }, 200, origin);
+    // Try to find by handle (requires read_products scope on the token)
+    for (const handle of COLLECTION_HANDLES) {
+      try {
+        const data = await shopifyRest(env, `custom_collections.json?handle=${handle}&fields=id,handle,title`);
+        if (data.custom_collections?.length) { collectionId = data.custom_collections[0].id; break; }
+      } catch {}
+      try {
+        const data = await shopifyRest(env, `smart_collections.json?handle=${handle}&fields=id,handle,title`);
+        if (data.smart_collections?.length) { collectionId = data.smart_collections[0].id; break; }
+      } catch {}
+    }
   }
 
-  // products.json?collection_id works for both manual AND smart collections
-  const productsData = await shopifyRest(
-    env,
-    `products.json?collection_id=${collectionId}&fields=id,title,images&limit=250`,
-  );
-  const products = productsData.products || [];
+  let products = [];
+  if (collectionId) {
+    // products.json?collection_id works for both manual AND smart collections
+    const productsData = await shopifyRest(
+      env,
+      `products.json?collection_id=${collectionId}&fields=id,title,images&limit=250`,
+    );
+    products = productsData.products || [];
+  } else {
+    // Fallback: return all products in the store (user can filter in the picker UI)
+    const productsData = await shopifyRest(
+      env,
+      `products.json?fields=id,title,images&limit=250`,
+    );
+    products = productsData.products || [];
+  }
 
   // Fetch metafields for each product
   const metafieldResults = await Promise.all(
