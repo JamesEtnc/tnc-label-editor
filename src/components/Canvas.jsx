@@ -396,34 +396,73 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
     if (zone.type !== 'text' || resizing !== 'Fitty') return;
 
     const maxFontSizePx = Math.max(4, Math.round(zone.fontSize * scale));
-    const maxW = zone.w * scale - 8;   // 8px for 4px l/r padding on rendered span
-    if (maxW <= 0) { setFitFontSize(maxFontSizePx); return; }
-
-    // Canvas measurement is more reliable than DOM probes (avoids layout/wrapping quirks)
-    const ctx = document.createElement('canvas').getContext('2d');
-    ctx.font = `${zone.fontStyle || 'normal'} ${zone.fontWeight || 400} ${maxFontSizePx}px '${zone.fontFamily}', sans-serif`;
-    // letterSpacing supported in Chrome 94+, Firefox 101+, Safari 17.2+
-    if (zone.letterSpacing && ctx.letterSpacing !== undefined) {
-      ctx.letterSpacing = `${zone.letterSpacing * scale}px`;
-    }
+    const maxW = zone.w * scale - 8;   // 8px for 4px l/r padding
+    const maxH = zone.h * scale - 4;   // 4px for 2px t/b padding
+    if (maxW <= 0 || maxH <= 0) { setFitFontSize(maxFontSizePx); return; }
 
     // Apply text-transform before measuring so widths match rendered output
     const text = zone.textTransform === 'uppercase' ? (displayText || '').toUpperCase()
                : zone.textTransform === 'lowercase' ? (displayText || '').toLowerCase()
                : (displayText || '');
 
-    // Split on explicit newlines; find widest line
-    const lines = text.split('\n');
-    const maxLineWidth = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+    if (!text) { setFitFontSize(maxFontSizePx); return; }
 
-    if (maxLineWidth <= maxW) {
-      setFitFontSize(maxFontSizePx);
-    } else {
-      setFitFontSize(Math.max(4, Math.floor(maxFontSizePx * maxW / maxLineWidth)));
+    const ctx = document.createElement('canvas').getContext('2d');
+
+    // Simulate CSS word-wrap: count how many lines text wraps to at the current font
+    function countWrappedLines() {
+      const spaceW = ctx.measureText(' ').width;
+      const paragraphs = text.split('\n');
+      let total = 0;
+      for (const para of paragraphs) {
+        const words = para.split(' ').filter(Boolean);
+        if (!words.length) { total++; continue; }
+        let lineW = 0;
+        let lines = 1;
+        for (const word of words) {
+          const ww = ctx.measureText(word).width;
+          if (lineW === 0) {
+            lineW = ww;
+          } else if (lineW + spaceW + ww <= maxW) {
+            lineW += spaceW + ww;
+          } else {
+            lines++;
+            lineW = ww;
+          }
+        }
+        total += lines;
+      }
+      return total;
     }
+
+    // Binary search: largest font where wrapped text fits in both width and height
+    let lo = 4, hi = maxFontSizePx, best = 4;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      ctx.font = `${zone.fontStyle || 'normal'} ${zone.fontWeight || 400} ${mid}px '${zone.fontFamily}', sans-serif`;
+      if (zone.letterSpacing && ctx.letterSpacing !== undefined) {
+        ctx.letterSpacing = `${zone.letterSpacing * scale}px`;
+      }
+
+      const numLines = countWrappedLines();
+      const totalH = numLines * (mid * lineHeightRatio);
+
+      // No single word may overflow width
+      const allWords = text.split(/[\n ]+/).filter(Boolean);
+      const maxWordW = allWords.length ? Math.max(...allWords.map(w => ctx.measureText(w).width)) : 0;
+
+      if (totalH <= maxH && maxWordW <= maxW) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    setFitFontSize(best);
   }, [
-    resizing, zone.type, zone.w, zone.fontSize, zone.fontFamily, zone.fontWeight,
-    zone.fontStyle, zone.letterSpacing, zone.textTransform, displayText, scale,
+    resizing, zone.type, zone.w, zone.h, zone.fontSize, zone.fontFamily, zone.fontWeight,
+    zone.fontStyle, zone.letterSpacing, zone.textTransform, displayText, scale, lineHeightRatio,
   ]);
 
   if (zone.type === 'photo') {
