@@ -364,7 +364,6 @@ function CanvasInner() {
 
 function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitEdit, onTextChange }) {
   // Hooks must all be called unconditionally (before any early return)
-  const probeRef = useRef(null);
   const [fitFontSize, setFitFontSize] = useState(48);
 
   const borderStyle = isEditing
@@ -395,41 +394,36 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
 
   useLayoutEffect(() => {
     if (zone.type !== 'text' || resizing !== 'Fitty') return;
-    const probe = probeRef.current;
-    if (!probe) return;
 
-    const maxW = zone.w * scale - 8;   // 8px for padding
-    if (maxW <= 0) return;
+    const maxFontSizePx = Math.max(4, Math.round(zone.fontSize * scale));
+    const maxW = zone.w * scale - 8;   // 8px for 4px l/r padding on rendered span
+    if (maxW <= 0) { setFitFontSize(maxFontSizePx); return; }
 
-    probe.style.width = `${maxW}px`;
-    probe.style.fontFamily = `'${zone.fontFamily}', sans-serif`;
-    probe.style.fontWeight = String(zone.fontWeight || 400);
-    probe.style.fontStyle = zone.fontStyle || 'normal';
-    probe.style.letterSpacing = `${(zone.letterSpacing || 0) * scale}px`;
-    probe.style.textTransform = zone.textTransform || 'none';
-    probe.style.wordBreak = zone.wordBreak ? 'break-all' : 'break-word';
-
-    // Cap at the Plain Text screen size (native px × scale) so Fitty only scales
-    // DOWN when text overflows — never inflates above the user's chosen font size.
-    let lo = 4, hi = Math.max(4, Math.round(zone.fontSize * scale)), best = 4;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      probe.style.fontSize = `${mid}px`;
-      // Use proportional ratio so line spacing shrinks with font size (matches Placid)
-      probe.style.lineHeight = `${mid * lineHeightRatio}px`;
-      if (probe.scrollWidth <= maxW) {
-        best = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
+    // Canvas measurement is more reliable than DOM probes (avoids layout/wrapping quirks)
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${zone.fontStyle || 'normal'} ${zone.fontWeight || 400} ${maxFontSizePx}px '${zone.fontFamily}', sans-serif`;
+    // letterSpacing supported in Chrome 94+, Firefox 101+, Safari 17.2+
+    if (zone.letterSpacing && ctx.letterSpacing !== undefined) {
+      ctx.letterSpacing = `${zone.letterSpacing * scale}px`;
     }
 
-    setFitFontSize(best);
+    // Apply text-transform before measuring so widths match rendered output
+    const text = zone.textTransform === 'uppercase' ? (displayText || '').toUpperCase()
+               : zone.textTransform === 'lowercase' ? (displayText || '').toLowerCase()
+               : (displayText || '');
+
+    // Split on explicit newlines; find widest line
+    const lines = text.split('\n');
+    const maxLineWidth = Math.max(0, ...lines.map(line => ctx.measureText(line).width));
+
+    if (maxLineWidth <= maxW) {
+      setFitFontSize(maxFontSizePx);
+    } else {
+      setFitFontSize(Math.max(4, Math.floor(maxFontSizePx * maxW / maxLineWidth)));
+    }
   }, [
-    resizing, zone.type, zone.w, zone.h, zone.lineSpacing, zone.fontSize,
-    zone.fontFamily, zone.fontWeight, zone.fontStyle, zone.letterSpacing,
-    zone.textTransform, zone.wordBreak, displayText, scale, lineHeightRatio,
+    resizing, zone.type, zone.w, zone.fontSize, zone.fontFamily, zone.fontWeight,
+    zone.fontStyle, zone.letterSpacing, zone.textTransform, displayText, scale,
   ]);
 
   if (zone.type === 'photo') {
@@ -546,22 +540,6 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
       position: 'relative',
       ...bgStyle,
     }}>
-      {/* Invisible probe for Fitty binary-search measurement */}
-      {resizing === 'Fitty' && (
-        <div
-          ref={probeRef}
-          aria-hidden
-          style={{
-            position: 'absolute', visibility: 'hidden', pointerEvents: 'none',
-            top: 0, left: 0,
-            whiteSpace: 'pre-wrap',
-            padding: '2px 4px',
-            boxSizing: 'border-box',
-          }}
-        >
-          {displayText}
-        </div>
-      )}
       <span style={{
         ...fontStyles,
         ...modeStyles,
