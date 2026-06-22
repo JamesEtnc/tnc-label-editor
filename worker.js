@@ -112,31 +112,18 @@ async function handleGetLabels(env, origin) {
   }
 
   if (!collectionId) {
-    return json({ products: [], error: 'Collection not found — create one with handle "all-labels"' }, 200, origin);
+    return json({
+      products: [],
+      error: 'Collection not found. Visit /debug/collections to see available handles.',
+    }, 200, origin);
   }
 
-  // Get products in collection (up to 250)
-  const collectData = await shopifyRest(
+  // products.json?collection_id works for both manual AND smart collections
+  const productsData = await shopifyRest(
     env,
-    `collects.json?collection_id=${collectionId}&limit=250&fields=product_id`,
+    `products.json?collection_id=${collectionId}&fields=id,title,images&limit=250`,
   );
-  const productIds = (collectData.collects || []).map(c => c.product_id);
-
-  if (!productIds.length) return json({ products: [] }, 200, origin);
-
-  // Fetch products + metafields in parallel (batch of 50 IDs per request)
-  const BATCH = 50;
-  const productBatches = [];
-  for (let i = 0; i < productIds.length; i += BATCH) {
-    productBatches.push(productIds.slice(i, i + BATCH));
-  }
-
-  const productResults = await Promise.all(
-    productBatches.map(ids =>
-      shopifyRest(env, `products.json?ids=${ids.join(',')}&fields=id,title,images&limit=${BATCH}`),
-    ),
-  );
-  const products = productResults.flatMap(r => r.products || []);
+  const products = productsData.products || [];
 
   // Fetch metafields for each product
   const metafieldResults = await Promise.all(
@@ -342,6 +329,15 @@ export default {
 
       if (parts[0] === 'files' && parts[1] === 'upload' && request.method === 'POST') {
         return await handleUploadFile(env, request, origin);
+      }
+
+      // Debug: list all collection handles so you can identify the right one
+      if (parts[0] === 'debug' && parts[1] === 'collections') {
+        const [custom, smart] = await Promise.all([
+          shopifyRest(env, 'custom_collections.json?fields=id,handle,title&limit=250').then(r => r.custom_collections || []).catch(() => []),
+          shopifyRest(env, 'smart_collections.json?fields=id,handle,title&limit=250').then(r => r.smart_collections || []).catch(() => []),
+        ]);
+        return json({ custom_collections: custom, smart_collections: smart }, 200, origin);
       }
 
       return json({ error: 'Not found' }, 404, origin);
