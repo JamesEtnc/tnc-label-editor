@@ -5,6 +5,7 @@ export function buildMetafields(state) {
   const add = (key, value) => {
     if (value !== null && value !== undefined && value !== '') {
       metafields.push({
+        namespace: 'custom',
         key,
         value: String(value),
         type: 'single_line_text_field',

@@ -141,7 +141,7 @@ async function handleGetLabels(env, origin) {
   // Fetch metafields for each product
   const metafieldResults = await Promise.all(
     products.map(p =>
-      shopifyRest(env, `products/${p.id}/metafields.json?namespace=tnc_label&limit=250`)
+      shopifyRest(env, `products/${p.id}/metafields.json?namespace=custom&limit=250`)
         .then(r => ({ id: p.id, metafields: metafieldsToMap(r.metafields) }))
         .catch(() => ({ id: p.id, metafields: {} })),
     ),
@@ -161,7 +161,7 @@ async function handleGetLabels(env, origin) {
 async function handleGetLabel(env, productId, origin) {
   const [productData, metafieldData] = await Promise.all([
     shopifyRest(env, `products/${productId}.json?fields=id,title,images`),
-    shopifyRest(env, `products/${productId}/metafields.json?namespace=tnc_label&limit=250`),
+    shopifyRest(env, `products/${productId}/metafields.json?namespace=custom&limit=250`),
   ]);
 
   const p = productData.product;
@@ -180,7 +180,7 @@ async function handlePutLabel(env, productId, body, origin) {
   // Fetch existing metafields to determine IDs for update vs create
   const existing = await shopifyRest(
     env,
-    `products/${productId}/metafields.json?namespace=tnc_label&limit=250`,
+    `products/${productId}/metafields.json?namespace=custom&limit=250`,
   );
   const existingByKey = Object.fromEntries(
     (existing.metafields || []).map(m => [m.key, m]),
@@ -201,7 +201,7 @@ async function handlePutLabel(env, productId, body, origin) {
         method: 'POST',
         body: JSON.stringify({
           metafield: {
-            namespace: mf.namespace || 'tnc_label',
+            namespace: mf.namespace || 'custom',
             key: mf.key,
             value: mf.value,
             type: mf.type || 'single_line_text_field',
