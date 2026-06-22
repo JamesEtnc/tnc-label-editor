@@ -227,8 +227,11 @@ async function handlePutLabel(env, productId, body, origin) {
 
   for (let i = 0; i < prepared.length; i += 25) {
     const data = await shopifyGraphQL(env, mutation, { metafields: prepared.slice(i, i + 25) });
-    const errors = data?.metafieldsSet?.userErrors;
-    if (errors?.length) throw new Error(`metafieldsSet errors: ${JSON.stringify(errors)}`);
+    const errors = data?.metafieldsSet?.userErrors || [];
+    // Type-conflict errors occur when a Shopify admin metafield definition uses a
+    // different type (e.g. file_reference). Skip those fields; don't fail the whole save.
+    const fatal = errors.filter(e => !e.message?.includes('must be consistent'));
+    if (fatal.length) throw new Error(`metafieldsSet errors: ${JSON.stringify(fatal)}`);
   }
 
   return json({ ok: true }, 200, origin);
