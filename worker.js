@@ -315,7 +315,7 @@ async function handleUploadFile(env, request, origin) {
       fileCreate(files: $files) {
         files {
           ... on MediaImage { id image { url } status }
-          ... on GenericFile { id url status }
+          ... on GenericFile { id url }
         }
         userErrors { field message }
       }
@@ -340,7 +340,7 @@ async function handleUploadFile(env, request, origin) {
     query getFile($id: ID!) {
       node(id: $id) {
         ... on MediaImage { id image { url } status }
-        ... on GenericFile { id url status }
+        ... on GenericFile { id url }
       }
     }
   `;
@@ -352,7 +352,10 @@ async function handleUploadFile(env, request, origin) {
       const pollData = await shopifyGraphQL(env, pollQuery, { id: fileId });
       const node = pollData?.node;
       const url = node?.image?.url || node?.url || null;
-      if (node?.status === 'READY' && url?.startsWith('https://cdn.shopify.com')) {
+      // MediaImage has status; GenericFile (fonts etc.) does not — for those,
+      // presence of a cdn.shopify.com URL is sufficient signal that it's ready.
+      const statusOk = node?.status ? node.status === 'READY' : true;
+      if (statusOk && url?.startsWith('https://cdn.shopify.com')) {
         cdnUrl = url;
         break;
       }
