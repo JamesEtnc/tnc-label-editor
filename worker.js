@@ -48,6 +48,7 @@ async function shopifyRest(env, path, options = {}) {
     headers: {
       'X-Shopify-Access-Token': env.SHOPIFY_TOKEN,
       'Content-Type': 'application/json',
+      'User-Agent': 'TNC-Label-Editor/1.0',
       ...(options.headers || {}),
     },
   });
@@ -65,6 +66,7 @@ async function shopifyGraphQL(env, query, variables = {}) {
     headers: {
       'X-Shopify-Access-Token': env.SHOPIFY_TOKEN,
       'Content-Type': 'application/json',
+      'User-Agent': 'TNC-Label-Editor/1.0',
     },
     body: JSON.stringify({ query, variables }),
   });
