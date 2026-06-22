@@ -54,7 +54,7 @@ async function shopifyRest(env, path, options = {}) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Shopify REST ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`Shopify REST ${res.status} (${url}): ${text.slice(0, 200)}`);
   }
   return res.json();
 }
@@ -342,6 +342,17 @@ export default {
           shopifyRest(env, 'smart_collections.json?fields=id,handle,title&limit=250').then(r => r.smart_collections || []).catch(() => []),
         ]);
         return json({ custom_collections: custom, smart_collections: smart }, 200, origin);
+      }
+
+      // Debug: show resolved env vars (token shown as prefix only)
+      if (parts[0] === 'debug' && parts[1] === 'env') {
+        return json({
+          SHOPIFY_STORE: env.SHOPIFY_STORE || '(not set)',
+          SHOPIFY_API_VERSION: env.SHOPIFY_API_VERSION || '(not set)',
+          SHOPIFY_TOKEN_PREFIX: env.SHOPIFY_TOKEN ? env.SHOPIFY_TOKEN.slice(0, 10) + '…' : '(not set)',
+          COLLECTION_ID: env.COLLECTION_ID || '(not set)',
+          test_url: `https://${env.SHOPIFY_STORE}/admin/api/${env.SHOPIFY_API_VERSION}/products.json?limit=1`,
+        }, 200, origin);
       }
 
       return json({ error: 'Not found' }, 404, origin);
