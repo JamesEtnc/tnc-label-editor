@@ -42,7 +42,7 @@ function json(data, status = 200, origin = '') {
 // ─── Shopify helpers ──────────────────────────────────────────────────────────
 
 async function shopifyRest(env, path, options = {}) {
-  const url = `https://${env.SHOPIFY_STORE}/admin/api/${env.SHOPIFY_API_VERSION}/${path}`;
+  const url = `https://${env.SHOPIFY_STORE_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/${path}`;
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -60,7 +60,7 @@ async function shopifyRest(env, path, options = {}) {
 }
 
 async function shopifyGraphQL(env, query, variables = {}) {
-  const url = `https://${env.SHOPIFY_STORE}/admin/api/${env.SHOPIFY_API_VERSION}/graphql.json`;
+  const url = `https://${env.SHOPIFY_STORE_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/graphql.json`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -347,11 +347,11 @@ export default {
       // Debug: show resolved env vars (token shown as prefix only)
       if (parts[0] === 'debug' && parts[1] === 'env') {
         return json({
-          SHOPIFY_STORE: env.SHOPIFY_STORE || '(not set)',
+          SHOPIFY_STORE_DOMAIN: env.SHOPIFY_STORE_DOMAIN || '(not set)',
           SHOPIFY_API_VERSION: env.SHOPIFY_API_VERSION || '(not set)',
           SHOPIFY_TOKEN_PREFIX: env.SHOPIFY_TOKEN ? env.SHOPIFY_TOKEN.slice(0, 10) + '…' : '(not set)',
           COLLECTION_ID: env.COLLECTION_ID || '(not set)',
-          test_url: `https://${env.SHOPIFY_STORE}/admin/api/${env.SHOPIFY_API_VERSION}/products.json?limit=1`,
+          test_url: `https://${env.SHOPIFY_STORE_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/products.json?limit=1`,
         }, 200, origin);
       }
 
