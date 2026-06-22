@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #1a1a2e;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* react-rnd handle visibility */
+.rnd-handle { opacity: 0; transition: opacity 0.15s; }
+.zone-selected .rnd-handle { opacity: 1; }
+
+/* snap guides */
+.snap-guide-h, .snap-guide-v {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9999;
+}
+.snap-guide-h {
+  left: 0; right: 0; height: 1px;
+  background: #00e5ff;
+}
+.snap-guide-v {
+  top: 0; bottom: 0; width: 1px;
+  background: #00e5ff;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0f0f1a; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
