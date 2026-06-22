@@ -77,28 +77,23 @@ function TemplateCard({ name, design, onEdit, onDelete, onRename }) {
     setIsRenaming(false);
   };
 
-  const savedAt = design.savedAt ? new Date(design.savedAt).toLocaleDateString() : null;
-
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden flex flex-col group">
+    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden flex flex-col group">
       {/* Thumbnail — click to edit */}
       <div className="relative cursor-pointer overflow-hidden" onClick={onEdit}>
         <DesignThumbnail design={design} />
-        <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <span className="bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow">
-            Open Editor
-          </span>
+        <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <span className="bg-indigo-600 text-white text-xs font-medium px-2 py-1 rounded shadow">Edit</span>
         </div>
-        {/* Linked product badge on thumbnail */}
         {design.linkedProductTitle && (
-          <div className="absolute top-1.5 right-1.5 bg-purple-900/80 border border-purple-700 rounded px-1.5 py-0.5 text-xs text-purple-300 backdrop-blur-sm max-w-[120px] truncate">
-            📦 {design.linkedProductTitle}
+          <div className="absolute top-1 right-1 bg-purple-900/80 border border-purple-700 rounded px-1 py-0.5 text-purple-300 backdrop-blur-sm" style={{ fontSize: 9 }}>
+            📦
           </div>
         )}
       </div>
 
       {/* Card body */}
-      <div className="p-3 flex flex-col gap-2 flex-1">
+      <div className="p-1.5 flex flex-col gap-1">
         {isRenaming ? (
           <input
             autoFocus
@@ -109,30 +104,23 @@ function TemplateCard({ name, design, onEdit, onDelete, onRename }) {
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') { setDraft(name); setIsRenaming(false); }
             }}
-            className="w-full bg-gray-700 border border-indigo-500 rounded px-2 py-1 text-white text-sm outline-none"
+            className="w-full bg-gray-700 border border-indigo-500 rounded px-1.5 py-0.5 text-white text-xs outline-none"
           />
         ) : (
-          <button
-            className="text-left text-sm font-medium text-gray-100 hover:text-indigo-300 truncate"
+          <p
+            className="text-xs text-gray-200 truncate leading-tight cursor-pointer hover:text-indigo-300"
             onClick={() => setIsRenaming(true)}
-            title="Click to rename"
+            title={name}
           >
             {name}
-          </button>
+          </p>
         )}
 
-        {savedAt && <p className="text-xs text-gray-500">Saved {savedAt}</p>}
-
-        <div className="flex gap-2 mt-auto pt-1">
-          <button
-            onClick={onEdit}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          >
-            Edit
-          </button>
+        <div className="flex gap-1">
           <button
             onClick={() => setIsRenaming(true)}
-            className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 transition-colors"
+            className="flex-1 text-center py-0.5 rounded text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+            style={{ fontSize: 10 }}
             title="Rename"
           >
             ✎
@@ -140,7 +128,8 @@ function TemplateCard({ name, design, onEdit, onDelete, onRename }) {
           {confirmDelete ? (
             <button
               onClick={() => { onDelete(name); setConfirmDelete(false); }}
-              className="px-3 py-1.5 rounded-lg text-xs text-red-400 hover:text-red-300 border border-red-700 hover:border-red-500 transition-colors"
+              className="flex-1 py-0.5 rounded text-red-400 border border-red-700 transition-colors"
+              style={{ fontSize: 10 }}
             >
               Sure?
             </button>
@@ -148,7 +137,8 @@ function TemplateCard({ name, design, onEdit, onDelete, onRename }) {
             <button
               onClick={() => setConfirmDelete(true)}
               onBlur={() => setConfirmDelete(false)}
-              className="px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-red-400 border border-gray-700 hover:border-red-700 transition-colors"
+              className="flex-1 py-0.5 rounded text-gray-600 hover:text-red-400 border border-gray-700 hover:border-red-700 transition-colors"
+              style={{ fontSize: 10 }}
               title="Delete"
             >
               ✕
@@ -277,7 +267,7 @@ export default function Dashboard({ onEdit, onNew }) {
 
         {/* Grid */}
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
             {filtered.map((name) => (
               <TemplateCard
                 key={name}
