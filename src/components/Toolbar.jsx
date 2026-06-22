@@ -89,9 +89,11 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
       return;
     }
 
-    // Returns true for any URL that isn't already a permanent Shopify CDN URL.
-    // This catches blob:, data:, and staged storage.googleapis.com URLs from old saves.
-    const needsUpload = (url) => !!url && !url.startsWith('https://cdn.shopify.com');
+    // Returns true for any URL that still needs uploading to the CDN.
+    // Excludes permanent CDN URLs and Google Fonts stylesheet URLs (no upload needed).
+    const needsUpload = (url) => !!url
+      && !url.startsWith('https://cdn.shopify.com')
+      && !url.startsWith('https://fonts.googleapis.com');
 
     // Upload any overlay images that aren't already on the CDN
     const overlayZones = useStore.getState().zones.filter(z => z.type === 'overlay' && z.visible && z.imageUrl);

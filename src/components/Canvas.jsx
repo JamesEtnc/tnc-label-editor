@@ -25,24 +25,29 @@ class CanvasErrorBoundary extends Component {
 
 function useFontFace(zones, fonts) {
   useEffect(() => {
-    // Inject global font library.
-    // Use font-weight: 100 900 so any CSS weight renders using the uploaded file
-    // (prevents the browser from synthesising fake bold/thin variants).
-    fonts.forEach(({ name, url }) => {
-      const id = `ff-lib-${name.replace(/\W+/g, '-')}`;
-      const css = `@font-face { font-family: '${name}'; src: url('${url}'); font-weight: 100 900; font-style: normal; }`;
-      let el = document.getElementById(id);
-      if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-      if (el.textContent !== css) el.textContent = css;
-    });
-    // Also inject per-zone fontUrl for backward-compat (legacy saves without a library)
+    const injectFont = (name, url, id) => {
+      if (!url) return;
+      if (url.startsWith('https://fonts.googleapis.com/')) {
+        // Google Fonts — inject a <link> stylesheet (the CSS contains its own @font-face rules)
+        if (!document.getElementById(id)) {
+          const link = document.createElement('link');
+          link.id = id; link.rel = 'stylesheet'; link.href = url;
+          document.head.appendChild(link);
+        }
+      } else {
+        // Uploaded font — inject @font-face with font-weight range so any weight works
+        const css = `@font-face { font-family: '${name}'; src: url('${url}'); font-weight: 100 900; font-style: normal; }`;
+        let el = document.getElementById(id);
+        if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
+        if (el.textContent !== css) el.textContent = css;
+      }
+    };
+
+    fonts.forEach(({ name, url }) => injectFont(name, url, `ff-lib-${name.replace(/\W+/g, '-')}`));
+    // Per-zone fontUrl for backward-compat (legacy saves without a global library)
     zones.forEach((z) => {
       if (z.type !== 'text' || !z.fontUrl || !z.fontFamily) return;
-      const id = `ff-${z.id}`;
-      const css = `@font-face { font-family: '${z.fontFamily}'; src: url('${z.fontUrl}'); font-weight: 100 900; font-style: normal; }`;
-      let el = document.getElementById(id);
-      if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-      if (el.textContent !== css) el.textContent = css;
+      injectFont(z.fontFamily, z.fontUrl, `ff-${z.id}`);
     });
   }, [zones, fonts]);
 }

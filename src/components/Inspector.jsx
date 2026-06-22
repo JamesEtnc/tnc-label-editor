@@ -99,6 +99,57 @@ function OverlayImageUpload({ current, onUploaded, onLocal }) {
   );
 }
 
+// ─── Google Fonts loader ──────────────────────────────────────────────────────
+
+function GoogleFontLoader({ onLoaded }) {
+  const [fontName, setFontName] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | loading | error
+
+  const handleLoad = () => {
+    const name = fontName.trim();
+    if (!name) return;
+    setStatus('loading');
+    const family = name.replace(/ /g, '+');
+    const url = `https://fonts.googleapis.com/css2?family=${family}:wght@100;300;400;500;700;900&display=swap`;
+
+    // Inject the stylesheet to verify the font exists and load it
+    const existing = document.getElementById(`gf-load-${family}`);
+    if (existing) existing.remove();
+    const link = document.createElement('link');
+    link.id = `gf-load-${family}`;
+    link.rel = 'stylesheet';
+    link.href = url;
+    link.onload = () => { onLoaded(name, url); setFontName(''); setStatus('idle'); };
+    link.onerror = () => setStatus('error');
+    document.head.appendChild(link);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={fontName}
+          onChange={e => { setFontName(e.target.value); setStatus('idle'); }}
+          onKeyDown={e => e.key === 'Enter' && handleLoad()}
+          placeholder="e.g. Playfair Display"
+          className="flex-1 bg-gray-800 border border-gray-700 focus:border-indigo-500 rounded px-2 py-1 text-white text-xs outline-none"
+        />
+        <button
+          onClick={handleLoad}
+          disabled={status === 'loading' || !fontName.trim()}
+          className="px-2 py-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 text-white text-xs rounded transition-colors"
+        >
+          {status === 'loading' ? '…' : 'Load'}
+        </button>
+      </div>
+      {status === 'error' && (
+        <p className="text-xs text-red-400">Font not found — check the exact name on fonts.google.com</p>
+      )}
+    </div>
+  );
+}
+
 // ─── font upload helper ───────────────────────────────────────────────────────
 
 function FontUpload({ onUploaded }) {
@@ -321,13 +372,22 @@ export default function Inspector() {
                   )}
                 </select>
               </Row>
-              <div className="mb-2 pl-[6.5rem]">
+              <div className="mb-2 pl-[6.5rem] flex flex-col gap-2">
                 <FontUpload
                   onUploaded={(name, url) => {
                     addFont(name, url);
                     upd({ fontFamily: name, fontUrl: url });
                   }}
                 />
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Or load from Google Fonts</p>
+                  <GoogleFontLoader
+                    onLoaded={(name, url) => {
+                      addFont(name, url);
+                      upd({ fontFamily: name, fontUrl: url });
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Colour */}

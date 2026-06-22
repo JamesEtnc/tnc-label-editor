@@ -79,8 +79,8 @@ export function buildMetafields(state) {
     add(`text_zone_${n}_vertical_anchor`, zone.verticalAnchor || 'middle');
     add(`text_zone_${n}_resizing`, zone.resizing || 'Fitty');
     add(`text_zone_${n}_placid_layer`, zone.placidLayerName || '');
-    // Font URL — only permanent Shopify CDN URLs
-    if (zone.fontUrl && zone.fontUrl.startsWith('https://cdn.shopify.com')) {
+    // Font URL — CDN uploads or Google Fonts stylesheet URLs
+    if (zone.fontUrl && (zone.fontUrl.startsWith('https://cdn.shopify.com') || zone.fontUrl.startsWith('https://fonts.googleapis.com'))) {
       add(`text_zone_${n}_font_url`, zone.fontUrl);
     }
   });
