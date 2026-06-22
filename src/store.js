@@ -17,6 +17,7 @@ const makePhotoZone = (id, index) => ({
   h: 300,
   rotation: 0,
   shape: 'rect',
+  placidPhotoLayer: '',
 });
 
 const makeTextZone = (id, index) => ({
@@ -38,15 +39,16 @@ const makeTextZone = (id, index) => ({
   underline: false,
   strikethrough: false,
   textTransform: 'none',     // 'none' | 'uppercase' | 'lowercase' | 'capitalize'
-  resizing: 'Plain Text',    // 'Plain Text' | 'Fit' | 'Single Line ...' | 'Clamp'
+  resizing: 'Plain Text',    // 'Plain Text' | 'Fitty' | 'Single Line ...' | 'Clamp'
   fontSize: 48,
   letterSpacing: 0,
-  lineSpacing: 0,   // extra px gap between lines → CSS line-height = fontSize + lineSpacing
-  bgColor: '',               // textbox background, '' = transparent
-  wordBreak: false,          // force long words to be hyphenated
+  lineSpacing: 0,
+  bgColor: '',
+  wordBreak: false,
   color: '#ffffff',
   textAlign: 'center',
   verticalAnchor: 'middle',
+  placidLayerName: '',
 });
 
 // Use time + random to avoid collisions after loadDesign or HMR resets module scope
@@ -62,6 +64,13 @@ export const useStore = create((set, get) => ({
   snapEnabled: true,
   snapActive: { h: false, v: false },
 
+  // Shopify integration
+  linkedProductId: null,
+  linkedProductTitle: null,
+  placidTemplateId: '',
+  isSavingToShopify: false,
+  lastSavedAt: null,
+
   setCanvas: (dims) => set({ canvas: { ...get().canvas, ...dims } }),
 
   setBaseImage: (url) => set({ baseImage: url }),
@@ -73,6 +82,21 @@ export const useStore = create((set, get) => ({
   setSnapActive: (snap) => set({ snapActive: snap }),
 
   selectZone: (id) => set({ selectedId: id }),
+
+  // Shopify actions
+  setLinkedProduct: (id, title) => set({ linkedProductId: id, linkedProductTitle: title }),
+  setPlacidTemplateId: (id) => set({ placidTemplateId: id }),
+  setIsSavingToShopify: (bool) => set({ isSavingToShopify: bool }),
+  setLastSavedAt: (ts) => set({ lastSavedAt: ts }),
+
+  // Bulk-load from Shopify metafields (called by ProductPickerModal when user selects "Yes, load data")
+  loadFromShopifyData: ({ canvas, zones, baseImage, placidTemplateId }) => set({
+    canvas: canvas || DEFAULT_CANVAS,
+    zones: zones || [],
+    baseImage: baseImage || null,
+    placidTemplateId: placidTemplateId || '',
+    selectedId: null,
+  }),
 
   // Add or overwrite a font in the global library — persisted across sessions
   addFont: (name, url) => set((s) => {
@@ -95,6 +119,9 @@ export const useStore = create((set, get) => ({
     baseImage: null,
     selectedId: null,
     mode: 'design',
+    linkedProductId: null,
+    linkedProductTitle: null,
+    placidTemplateId: '',
     // fonts stay — they are a global library
   }),
 
@@ -174,10 +201,14 @@ export const useStore = create((set, get) => ({
     })),
 
   saveDesign: (name) => {
-    const { canvas, zones, baseImage, fonts } = get();
+    const { canvas, zones, baseImage, fonts, linkedProductId, linkedProductTitle, placidTemplateId } = get();
     const designs = JSON.parse(localStorage.getItem('tnc-designs') || '{}');
     const existing = designs[name] || {};
-    designs[name] = { canvas, zones, baseImage, fonts, savedAt: Date.now(), createdAt: existing.createdAt || Date.now() };
+    designs[name] = {
+      canvas, zones, baseImage, fonts,
+      linkedProductId, linkedProductTitle, placidTemplateId,
+      savedAt: Date.now(), createdAt: existing.createdAt || Date.now(),
+    };
     localStorage.setItem('tnc-designs', JSON.stringify(designs));
   },
 
@@ -191,6 +222,9 @@ export const useStore = create((set, get) => ({
       baseImage: d.baseImage || null,
       fonts: d.fonts || [],
       selectedId: null,
+      linkedProductId: d.linkedProductId || null,
+      linkedProductTitle: d.linkedProductTitle || null,
+      placidTemplateId: d.placidTemplateId || '',
     });
     return true;
   },

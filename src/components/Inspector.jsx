@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useStore } from '../store';
+import { uploadFile } from '../api/shopify';
 
 // ─── small reusable inputs ────────────────────────────────────────────────────
 
@@ -41,28 +43,60 @@ const ToggleBtn = ({ active, onClick, children, title }) => (
 // ─── font upload helper ───────────────────────────────────────────────────────
 
 function FontUpload({ onUploaded }) {
+  const [uploading, setUploading] = useState(false);
+  const [warning, setWarning] = useState('');
+
+  const handleChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const name = file.name
+      .replace(/\.[^.]+$/, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    setUploading(true);
+    setWarning('');
+
+    try {
+      const result = await uploadFile(file);
+      if (result?.url) {
+        onUploaded(name, result.url);
+        setUploading(false);
+        e.target.value = '';
+        return;
+      }
+      throw new Error('No URL returned');
+    } catch {
+      // Fallback: store as base64 data URL (won't be included in Shopify metafields)
+      setWarning('CDN upload failed — saved locally');
+      const reader = new FileReader();
+      reader.onload = (ev) => onUploaded(name, ev.target.result);
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
   return (
-    <label className="cursor-pointer">
-      <span className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
-        Upload Custom Font
-      </span>
+    <label className="cursor-pointer flex items-center gap-2">
+      {uploading ? (
+        <span className="text-xs text-gray-400 flex items-center gap-1">
+          <span className="inline-block w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+          Uploading…
+        </span>
+      ) : (
+        <span className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+          Upload Custom Font
+        </span>
+      )}
+      {warning && <span className="text-xs text-yellow-500">{warning}</span>}
       <input
         type="file"
         accept=".ttf,.otf,.woff,.woff2"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const name = file.name
-            .replace(/\.[^.]+$/, '')
-            .replace(/[-_]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          const reader = new FileReader();
-          reader.onload = (ev) => onUploaded(name, ev.target.result);
-          reader.readAsDataURL(file);
-          e.target.value = '';
-        }}
+        onChange={handleChange}
       />
     </label>
   );
@@ -137,6 +171,20 @@ export default function Inspector() {
                 ))}
               </div>
             </div>
+
+            {/* Placid layer name for photo zone */}
+            <div className="border-t border-gray-800 pt-3">
+              <Section title="Placid" />
+              <Row label="Layer name">
+                <input
+                  type="text"
+                  value={zone.placidPhotoLayer || ''}
+                  onChange={(e) => upd({ placidPhotoLayer: e.target.value })}
+                  placeholder="e.g. photo_1"
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+                />
+              </Row>
+            </div>
           </>
         )}
 
@@ -163,6 +211,15 @@ export default function Inspector() {
                   className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs resize-none"
                 />
               </Row>
+              <Row label="Placid layer">
+                <input
+                  type="text"
+                  value={zone.placidLayerName || ''}
+                  onChange={(e) => upd({ placidLayerName: e.target.value })}
+                  placeholder="e.g. text_1"
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+                />
+              </Row>
             </div>
 
             {/* TEXT STYLE */}
@@ -182,11 +239,9 @@ export default function Inspector() {
                   {fonts.length === 0 && !zone.fontFamily && (
                     <option value="">— upload a font —</option>
                   )}
-                  {/* Show fonts from the library */}
                   {fonts.map((f) => (
                     <option key={f.name} value={f.name}>{f.name}</option>
                   ))}
-                  {/* If current font isn't in the library (e.g. legacy / system font), show it */}
                   {zone.fontFamily && !fonts.find((f) => f.name === zone.fontFamily) && (
                     <option value={zone.fontFamily}>{zone.fontFamily}</option>
                   )}
@@ -240,8 +295,7 @@ export default function Inspector() {
                 </select>
               </Row>
 
-              {/* Size & letter spacing — side by side like Placid.
-                  Font size is hidden in Fit mode (auto-computed from box height). */}
+              {/* Size & letter spacing */}
               <Row label="Size & Spacing">
                 <div className="flex gap-2">
                   <div className="flex items-center gap-1 flex-1">
@@ -310,8 +364,6 @@ export default function Inspector() {
             <div className="border-t border-gray-800 pt-3">
               <Section title="Textbox" />
 
-              {/* Spacing = extra px gap between lines, matching Placid's formula:
-                  CSS line-height = fontSize + spacing  (0 = tightly packed lines) */}
               <Row label="Spacing">
                 <div className="flex items-center gap-1">
                   <NumInput
@@ -324,7 +376,7 @@ export default function Inspector() {
                 </div>
               </Row>
 
-              {/* Resizing — matches Placid's 4 modes exactly (Placid calls it "Fitty") */}
+              {/* Resizing — matches Placid's 4 modes exactly */}
               <Row label="Resizing">
                 <select
                   value={zone.resizing === 'Fixed' ? 'Plain Text' : zone.resizing === 'Fit' ? 'Fitty' : (zone.resizing || 'Plain Text')}
@@ -380,10 +432,10 @@ export default function Inspector() {
               <Row label="Alignment">
                 <div className="flex rounded overflow-hidden border border-gray-700 text-xs">
                   {[
-                    ['left',   '≡', 'Left'],
-                    ['center', '≡', 'Center'],
-                    ['right',  '≡', 'Right'],
-                  ].map(([v, , label], i) => (
+                    ['left',   'Left'],
+                    ['center', 'Center'],
+                    ['right',  'Right'],
+                  ].map(([v, label], i) => (
                     <button
                       key={v}
                       title={label}

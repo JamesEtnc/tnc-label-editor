@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
+import ProductPickerModal from './ProductPickerModal';
 
 // ── Mini canvas thumbnail ─────────────────────────────────────────────────────
 
@@ -7,7 +8,6 @@ function DesignThumbnail({ design }) {
   const { canvas, zones = [], baseImage } = design || {};
   if (!canvas) return <div style={{ width: '100%', aspectRatio: '16/9', background: '#374151' }} />;
 
-  const scale = 1; // rendered at 100% then CSS-scaled to fit
   const W = canvas.w;
   const H = canvas.h;
 
@@ -88,6 +88,12 @@ function TemplateCard({ name, design, onEdit, onDelete, onRename }) {
             Open Editor
           </span>
         </div>
+        {/* Linked product badge on thumbnail */}
+        {design.linkedProductTitle && (
+          <div className="absolute top-1.5 right-1.5 bg-purple-900/80 border border-purple-700 rounded px-1.5 py-0.5 text-xs text-purple-300 backdrop-blur-sm max-w-[120px] truncate">
+            📦 {design.linkedProductTitle}
+          </div>
+        )}
       </div>
 
       {/* Card body */}
@@ -159,6 +165,9 @@ export default function Dashboard({ onEdit, onNew }) {
   const { loadDesign, newDesign, renameDesign, deleteDesign } = useStore();
   const [search, setSearch] = useState('');
   const [designs, setDesigns] = useState({});
+  // Product picker state
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingNav, setPendingNav] = useState(null); // { type: 'new' } | { type: 'edit', name: string }
 
   const reload = useCallback(() => {
     try {
@@ -172,12 +181,24 @@ export default function Dashboard({ onEdit, onNew }) {
 
   const handleEdit = (name) => {
     loadDesign(name);
-    onEdit(name);
+    setPendingNav({ type: 'edit', name });
+    setPickerOpen(true);
   };
 
   const handleNew = () => {
     newDesign();
-    onNew();
+    setPendingNav({ type: 'new' });
+    setPickerOpen(true);
+  };
+
+  const handlePickerComplete = () => {
+    setPickerOpen(false);
+    if (pendingNav?.type === 'new') {
+      onNew();
+    } else {
+      onEdit(pendingNav?.name || '');
+    }
+    setPendingNav(null);
   };
 
   const handleRename = (oldName, newName) => {
@@ -277,6 +298,15 @@ export default function Dashboard({ onEdit, onNew }) {
           </div>
         )}
       </div>
+
+      {/* Product picker modal */}
+      {pickerOpen && (
+        <ProductPickerModal
+          onComplete={handlePickerComplete}
+          showSkip={true}
+          skipLabel="Skip — don't link to Shopify"
+        />
+      )}
     </div>
   );
 }
