@@ -18,7 +18,7 @@ function base64DataUrlToFile(dataUrl, fallbackName = 'file') {
 
 export default function Toolbar({ currentDesignName, setCurrentDesignName, onBack }) {
   const {
-    canvas, setCanvas, setBaseImage, addPhotoZone, addTextZone,
+    canvas, setCanvas, setBaseImage, addPhotoZone, addTextZone, addOverlayZone,
     mode, setMode, snapEnabled, toggleSnap, zones, saveDesign,
     linkedProductId, linkedProductTitle,
     isSavingToShopify, setIsSavingToShopify, setLastSavedAt,
@@ -79,6 +79,27 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
 
   const handleSaveToShopify = async () => {
     if (!linkedProductId) return;
+
+    // Upload any overlay images that are still local blob: or data: URLs
+    const overlayZones = useStore.getState().zones.filter(z => z.type === 'overlay' && z.visible && z.imageUrl);
+    for (const zone of overlayZones) {
+      if (zone.imageUrl.startsWith('blob:') || zone.imageUrl.startsWith('data:')) {
+        try {
+          let file;
+          if (zone.imageUrl.startsWith('blob:')) {
+            const res = await fetch(zone.imageUrl);
+            const blob = await res.blob();
+            file = new File([blob], 'overlay.png', { type: blob.type || 'image/png' });
+          } else {
+            file = base64DataUrlToFile(zone.imageUrl, 'overlay');
+          }
+          const result = await uploadFile(file);
+          if (result?.url) updateZone(zone.id, { imageUrl: result.url });
+        } catch {
+          // Keep local URL — will be excluded from metafields by buildMetafields
+        }
+      }
+    }
 
     // Upload any fonts that are still stored as base64 data URLs
     const textZones = useStore.getState().zones.filter(z => z.type === 'text' && z.visible);
@@ -270,6 +291,9 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
         {/* Add zones */}
         <button onClick={addPhotoZone} className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs text-white">
           + Photo Zone
+        </button>
+        <button onClick={addOverlayZone} className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-xs text-white">
+          + Decorative
         </button>
         <button onClick={addTextZone} className="px-2 py-1 bg-purple-700 hover:bg-purple-600 rounded text-xs text-white">
           + Text Zone

@@ -57,7 +57,7 @@ export default function LayersPanel() {
             `}
           >
             {/* Type dot */}
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${z.type === 'photo' ? 'bg-blue-400' : 'bg-purple-400'}`} />
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${z.type === 'photo' ? 'bg-blue-400' : z.type === 'overlay' ? 'bg-emerald-400' : 'bg-purple-400'}`} />
 
             {/* Editable name */}
             <input

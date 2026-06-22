@@ -489,6 +489,46 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
     );
   }
 
+  if (zone.type === 'overlay') {
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        border: borderStyle,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        position: 'relative',
+        background: 'transparent',
+      }}>
+        {zone.imageUrl ? (
+          <img
+            src={zone.imageUrl}
+            alt="overlay"
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'fill',
+              pointerEvents: 'none',
+              display: 'block',
+            }}
+          />
+        ) : mode === 'design' ? (
+          <div style={{
+            width: '100%', height: '100%',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 4,
+            background: 'rgba(52,211,153,0.06)',
+          }}>
+            <span style={{ fontSize: Math.max(10, Math.min(28, zone.w * scale * 0.06)), opacity: 0.55 }}>✨</span>
+            <span style={{ fontSize: Math.max(8, 10 * scale), color: 'rgba(110,231,183,0.6)', textAlign: 'center' }}>
+              Decorative layer<br />Upload PNG in inspector
+            </span>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const alignItems = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[zone.verticalAnchor] || 'center';
   const justifyContent = { left: 'flex-start', center: 'center', right: 'flex-end' }[zone.textAlign] || 'center';
 

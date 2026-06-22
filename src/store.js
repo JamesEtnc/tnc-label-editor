@@ -20,6 +20,19 @@ const makePhotoZone = (id, index) => ({
   placidPhotoLayer: '',
 });
 
+const makeOverlayZone = (id, index, canvas = DEFAULT_CANVAS) => ({
+  id,
+  type: 'overlay',
+  name: `Decorative Layer ${index}`,
+  visible: true,
+  x: 0,
+  y: 0,
+  w: canvas.w,
+  h: canvas.h,
+  rotation: 0,
+  imageUrl: null,
+});
+
 const makeTextZone = (id, index) => ({
   id,
   type: 'text',
@@ -146,6 +159,17 @@ export const useStore = create((set, get) => ({
       return true;
     } catch {}
     return false;
+  },
+
+  addOverlayZone: () => {
+    const { zones, canvas } = get();
+    const overlayCount = zones.filter((z) => z.type === 'overlay').length;
+    if (overlayCount >= 4) return;
+    const id = uid();
+    set((s) => ({
+      zones: [...s.zones, makeOverlayZone(id, overlayCount + 1, canvas)],
+      selectedId: id,
+    }));
   },
 
   addPhotoZone: () => {

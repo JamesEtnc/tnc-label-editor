@@ -40,6 +40,65 @@ const ToggleBtn = ({ active, onClick, children, title }) => (
   </button>
 );
 
+// ─── overlay image upload helper ─────────────────────────────────────────────
+
+function OverlayImageUpload({ current, onUploaded, onLocal }) {
+  const [uploading, setUploading] = useState(false);
+  const [warning, setWarning] = useState('');
+
+  const handleChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setWarning('');
+    e.target.value = '';
+    try {
+      const result = await uploadFile(file);
+      if (result?.url) {
+        onUploaded(result.url);
+        setUploading(false);
+        return;
+      }
+      throw new Error('No URL');
+    } catch {
+      setWarning('CDN upload failed — saved locally (won\'t save to Shopify)');
+      onLocal(URL.createObjectURL(file));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {current && (
+        <div className="relative rounded overflow-hidden border border-gray-700"
+          style={{ background: 'repeating-conic-gradient(#374151 0% 25%,#4b5563 0% 50%) 0 0/12px 12px' }}
+        >
+          <img src={current} alt="overlay preview"
+            className="w-full max-h-20 object-contain block" />
+          {(current.startsWith('blob:') || current.startsWith('data:')) && (
+            <p className="text-xs text-amber-400 px-2 py-1">⚠ Local only — re-upload to save to Shopify</p>
+          )}
+        </div>
+      )}
+      <label className="cursor-pointer">
+        {uploading ? (
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <span className="inline-block w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+            Uploading…
+          </span>
+        ) : (
+          <span className="text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2">
+            {current ? 'Replace Image' : 'Upload PNG / Image'}
+          </span>
+        )}
+        {warning && <p className="text-xs text-amber-400 mt-1">{warning}</p>}
+        <input type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      </label>
+    </div>
+  );
+}
+
 // ─── font upload helper ───────────────────────────────────────────────────────
 
 function FontUpload({ onUploaded }) {
@@ -123,7 +182,7 @@ export default function Inspector() {
       {/* Header */}
       <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          {zone.type === 'photo' ? 'Photo Zone' : 'Text Zone'}
+          {zone.type === 'photo' ? 'Photo Zone' : zone.type === 'overlay' ? 'Decorative Layer' : 'Text Zone'}
         </span>
         <button
           onClick={() => deleteZone(zone.id)}
@@ -153,6 +212,21 @@ export default function Inspector() {
           </div>
         </Row>
         <p className="text-xs text-gray-600 mb-3">Ratio: {zone.w}/{zone.h}</p>
+
+        {/* ── OVERLAY ZONE ONLY ── */}
+        {zone.type === 'overlay' && (
+          <div className="border-t border-gray-800 pt-3">
+            <Section title="Decorative Image" />
+            <p className="text-xs text-gray-500 mb-3">
+              Upload a transparent PNG. It will be stretched to fill this zone — position and resize the zone to place it on the canvas.
+            </p>
+            <OverlayImageUpload
+              current={zone.imageUrl}
+              onUploaded={(url) => upd({ imageUrl: url })}
+              onLocal={(blobUrl) => upd({ imageUrl: blobUrl })}
+            />
+          </div>
+        )}
 
         {/* ── PHOTO ZONE ONLY ── */}
         {zone.type === 'photo' && (

@@ -41,6 +41,21 @@ export function buildMetafields(state) {
     add(`photo_zone_${n}_placid_layer`, zone.placidPhotoLayer || '');
   });
 
+  // Overlay / decorative zones
+  const overlayZones = zones.filter(z => z.type === 'overlay' && z.visible);
+  overlayZones.forEach((zone, i) => {
+    const n = i + 1;
+    const pct = (v, dim) => ((v / dim) * 100).toFixed(2);
+    add(`overlay_zone_${n}_x`, pct(zone.x, canvas.w));
+    add(`overlay_zone_${n}_y`, pct(zone.y, canvas.h));
+    add(`overlay_zone_${n}_width`, pct(zone.w, canvas.w));
+    add(`overlay_zone_${n}_height`, pct(zone.h, canvas.h));
+    add(`overlay_zone_${n}_rotation`, zone.rotation || 0);
+    if (zone.imageUrl && zone.imageUrl.startsWith('https://')) {
+      add(`overlay_zone_${n}_image`, zone.imageUrl);
+    }
+  });
+
   // Text zones
   const textZones = zones.filter(z => z.type === 'text' && z.visible);
   textZones.forEach((zone, i) => {

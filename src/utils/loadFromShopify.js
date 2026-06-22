@@ -33,6 +33,30 @@ export function metafieldsToStoreState(metafields, currentStore) {
     });
   }
 
+  // Reconstruct overlay / decorative zones (between photo and text for correct z-order)
+  for (let n = 1; n <= 4; n++) {
+    const x = mf[`overlay_zone_${n}_x`];
+    if (!x) break;
+
+    const pxX = (parseFloat(x) / 100) * canvas.w;
+    const pxY = (parseFloat(mf[`overlay_zone_${n}_y`]) / 100) * canvas.h;
+    const pxW = (parseFloat(mf[`overlay_zone_${n}_width`]) / 100) * canvas.w;
+    const pxH = (parseFloat(mf[`overlay_zone_${n}_height`]) / 100) * canvas.h;
+
+    zones.push({
+      id: `loaded-overlay-${n}-${Date.now()}`,
+      type: 'overlay',
+      name: `Decorative Layer ${n}`,
+      visible: true,
+      x: Math.round(pxX),
+      y: Math.round(pxY),
+      w: Math.round(pxW),
+      h: Math.round(pxH),
+      rotation: parseInt(mf[`overlay_zone_${n}_rotation`]) || 0,
+      imageUrl: mf[`overlay_zone_${n}_image`] || null,
+    });
+  }
+
   // Reconstruct text zones
   for (let n = 1; n <= 4; n++) {
     const x = mf[`text_zone_${n}_x`];
