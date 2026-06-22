@@ -124,12 +124,19 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
     try {
       const freshState = useStore.getState();
       const metafields = buildMetafields(freshState);
-      await saveLabel(freshState.linkedProductId, metafields);
+      const result = await saveLabel(freshState.linkedProductId, metafields);
       setLastSavedAt(Date.now());
       setShopifyFlash(true);
       setTimeout(() => setShopifyFlash(false), 2000);
       if (baseImageError) {
         alert(`Label saved to Shopify ✓\n\nBase image could not be uploaded to CDN:\n${baseImageError}\n\nRe-upload the base image and save again to include it.`);
+      } else if (result?.skipped?.length) {
+        alert(
+          `Label saved to Shopify ✓\n\n` +
+          `These fields were skipped because their Shopify metafield definition uses an incompatible type (e.g. file_reference):\n\n` +
+          `• ${result.skipped.join('\n• ')}\n\n` +
+          `To fix: Shopify Admin → Settings → Custom data → Products → delete the definition for those keys, then save again.`
+        );
       }
     } catch (err) {
       alert('Save to Shopify failed: ' + err.message);

@@ -225,16 +225,24 @@ async function handlePutLabel(env, productId, body, origin) {
     type: mf.type || 'single_line_text_field',
   }));
 
+  const skipped = [];
   for (let i = 0; i < prepared.length; i += 25) {
-    const data = await shopifyGraphQL(env, mutation, { metafields: prepared.slice(i, i + 25) });
+    const batch = prepared.slice(i, i + 25);
+    const data = await shopifyGraphQL(env, mutation, { metafields: batch });
     const errors = data?.metafieldsSet?.userErrors || [];
-    // Type-conflict errors occur when a Shopify admin metafield definition uses a
-    // different type (e.g. file_reference). Skip those fields; don't fail the whole save.
-    const fatal = errors.filter(e => !e.message?.includes('must be consistent'));
-    if (fatal.length) throw new Error(`metafieldsSet errors: ${JSON.stringify(fatal)}`);
+    for (const err of errors) {
+      if (err.message?.includes('must be consistent')) {
+        // Type conflict with a Shopify admin metafield definition — track which key
+        const fieldPath = Array.isArray(err.field) ? err.field.join('.') : String(err.field || '');
+        const idx = parseInt(fieldPath.match(/(\d+)/)?.[1] ?? '-1');
+        skipped.push(idx >= 0 && batch[idx] ? batch[idx].key : '(unknown)');
+      } else {
+        throw new Error(`metafieldsSet error: ${err.message}`);
+      }
+    }
   }
 
-  return json({ ok: true }, 200, origin);
+  return json({ ok: true, skipped: skipped.length ? skipped : undefined }, 200, origin);
 }
 
 async function handleUploadFile(env, request, origin) {
