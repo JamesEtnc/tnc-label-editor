@@ -203,42 +203,34 @@ async function handleGetLabel(env, productId, origin) {
 async function handlePutLabel(env, productId, body, origin) {
   // body.metafields = [{ key, value, type, namespace }]
   const { metafields: incoming = [] } = body;
+  if (!incoming.length) return json({ ok: true }, 200, origin);
 
-  // Fetch existing metafields to determine IDs for update vs create
-  const existing = await shopifyRest(
-    env,
-    `products/${productId}/metafields.json?namespace=custom&limit=250`,
-  );
-  const existingByKey = Object.fromEntries(
-    (existing.metafields || []).map(m => [m.key, m]),
-  );
-
-  // Upsert each incoming metafield
-  const ops = incoming.map(async (mf) => {
-    const ex = existingByKey[mf.key];
-    if (ex) {
-      // Update existing by ID
-      await shopifyRest(env, `products/${productId}/metafields/${ex.id}.json`, {
-        method: 'PUT',
-        body: JSON.stringify({ metafield: { id: ex.id, value: mf.value, type: mf.type || ex.type } }),
-      });
-    } else {
-      // Create new
-      await shopifyRest(env, `products/${productId}/metafields.json`, {
-        method: 'POST',
-        body: JSON.stringify({
-          metafield: {
-            namespace: mf.namespace || 'custom',
-            key: mf.key,
-            value: mf.value,
-            type: mf.type || 'single_line_text_field',
-          },
-        }),
-      });
+  // Use metafieldsSet (GraphQL) — upserts all in one call, no pre-fetch needed.
+  // Shopify allows max 25 metafields per metafieldsSet call, so batch if needed.
+  const gid = `gid://shopify/Product/${productId}`;
+  const mutation = `
+    mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        metafields { key }
+        userErrors { field message code }
+      }
     }
-  });
+  `;
 
-  await Promise.all(ops);
+  const prepared = incoming.map(mf => ({
+    ownerId: gid,
+    namespace: mf.namespace || 'custom',
+    key: mf.key,
+    value: String(mf.value),
+    type: mf.type || 'single_line_text_field',
+  }));
+
+  for (let i = 0; i < prepared.length; i += 25) {
+    const data = await shopifyGraphQL(env, mutation, { metafields: prepared.slice(i, i + 25) });
+    const errors = data?.metafieldsSet?.userErrors;
+    if (errors?.length) throw new Error(`metafieldsSet errors: ${JSON.stringify(errors)}`);
+  }
+
   return json({ ok: true }, 200, origin);
 }
 
