@@ -18,7 +18,10 @@ export async function saveLabel(id, metafields) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ metafields }),
   });
-  if (!res.ok) throw new Error('Failed to save label');
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Save failed (${res.status}): ${body || res.statusText}`);
+  }
   return res.json();
 }
 
@@ -29,6 +32,9 @@ export async function uploadFile(file) {
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error('Failed to upload file');
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Upload failed (${res.status}): ${body || res.statusText}`);
+  }
   return res.json(); // { url: '...' }
 }
