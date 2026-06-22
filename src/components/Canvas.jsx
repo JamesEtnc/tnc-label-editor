@@ -399,8 +399,7 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
     if (!probe) return;
 
     const maxW = zone.w * scale - 8;   // 8px for padding
-    const maxH = zone.h * scale - 4;   // 4px for padding
-    if (maxW <= 0 || maxH <= 0) return;
+    if (maxW <= 0) return;
 
     probe.style.width = `${maxW}px`;
     probe.style.fontFamily = `'${zone.fontFamily}', sans-serif`;
@@ -418,7 +417,7 @@ function ZoneContent({ zone, isSelected, mode, scale, isEditing = false, onExitE
       probe.style.fontSize = `${mid}px`;
       // Use proportional ratio so line spacing shrinks with font size (matches Placid)
       probe.style.lineHeight = `${mid * lineHeightRatio}px`;
-      if (probe.scrollWidth <= maxW && probe.scrollHeight <= maxH) {
+      if (probe.scrollWidth <= maxW) {
         best = mid;
         lo = mid + 1;
       } else {
