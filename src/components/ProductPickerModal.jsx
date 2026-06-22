@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchLabels } from '../api/shopify';
 import { useStore } from '../store';
 import { metafieldsToStoreState } from '../utils/loadFromShopify';
@@ -9,6 +9,7 @@ export default function ProductPickerModal({
   onComplete,
   showSkip = true,
   skipLabel = 'Skip — don\'t link to Shopify',
+  filterLinked = false, // when true, hides products already linked to a saved template
 }) {
   const { setLinkedProduct, loadFromShopifyData } = useStore();
   const [products, setProducts] = useState([]);
@@ -31,9 +32,21 @@ export default function ProductPickerModal({
       });
   }, []);
 
+  // Collect product IDs already linked to saved templates
+  const linkedIds = useMemo(() => {
+    if (!filterLinked) return new Set();
+    try {
+      const designs = JSON.parse(localStorage.getItem('tnc-designs') || '{}');
+      return new Set(Object.values(designs).map(d => d.linkedProductId).filter(Boolean));
+    } catch { return new Set(); }
+  }, [filterLinked]);
+
+  const available = filterLinked ? products.filter(p => !linkedIds.has(p.id)) : products;
+  const hiddenCount = products.length - available.length;
+
   const filtered = search.trim()
-    ? products.filter(p => p.title.toLowerCase().includes(search.trim().toLowerCase()))
-    : products;
+    ? available.filter(p => p.title.toLowerCase().includes(search.trim().toLowerCase()))
+    : available;
 
   const handleProductClick = (product) => {
     const hasData = product.metafields && Object.keys(product.metafields).length > 0;
@@ -111,6 +124,7 @@ export default function ProductPickerModal({
                   onClick={() => handleProductClick(product)}
                   className="bg-gray-800 border border-gray-700 hover:border-indigo-500 rounded-lg overflow-hidden text-left transition-all group"
                 >
+
                   <div className="aspect-video bg-gray-700 overflow-hidden">
                     {product.thumbnail ? (
                       <img
@@ -131,6 +145,12 @@ export default function ProductPickerModal({
                 </button>
               ))}
             </div>
+          )}
+          {/* Hidden count note */}
+          {hiddenCount > 0 && (
+            <p className="text-center text-xs text-gray-600 mt-4">
+              {hiddenCount} product{hiddenCount !== 1 ? 's' : ''} hidden — already linked to a template
+            </p>
           )}
         </div>
 

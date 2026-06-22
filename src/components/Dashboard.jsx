@@ -319,6 +319,7 @@ export default function Dashboard({ onEdit, onNew }) {
           onComplete={handlePickerComplete}
           showSkip={true}
           skipLabel="Skip — don't link to Shopify"
+          filterLinked={pendingNav?.type === 'new'}
         />
       )}
 
