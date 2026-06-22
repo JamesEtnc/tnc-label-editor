@@ -105,19 +105,27 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
       }
     }
 
-    // Upload any fonts that are still stored as base64 data URLs
+    // Upload any fonts that aren't already on the CDN
     const textZones = useStore.getState().zones.filter(z => z.type === 'text' && z.visible);
     for (const zone of textZones) {
-      if (zone.fontUrl && zone.fontUrl.startsWith('data:')) {
+      if (zone.fontUrl && needsUpload(zone.fontUrl)) {
         try {
-          const file = base64DataUrlToFile(zone.fontUrl, zone.fontFamily || 'font');
+          let file;
+          if (zone.fontUrl.startsWith('data:')) {
+            file = base64DataUrlToFile(zone.fontUrl, zone.fontFamily || 'font');
+          } else {
+            const res = await fetch(zone.fontUrl);
+            const blob = await res.blob();
+            const ext = zone.fontUrl.split('.').pop()?.split('?')[0] || 'woff2';
+            file = new File([blob], `${zone.fontFamily || 'font'}.${ext}`, { type: blob.type });
+          }
           const result = await uploadFile(file);
           if (result?.url) {
             updateZone(zone.id, { fontUrl: result.url });
             addFont(zone.fontFamily, result.url);
           }
         } catch {
-          // Keep base64, continue — it won't be included in metafields
+          // Keep existing URL — won't be included in metafields if not CDN
         }
       }
     }
