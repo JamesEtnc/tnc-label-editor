@@ -83,10 +83,46 @@ async function shopifyGraphQL(env, query, variables = {}) {
 
 // ─── Metafield utilities ──────────────────────────────────────────────────────
 
-function metafieldsToMap(metafields = []) {
+// Resolve Shopify file_reference GIDs (e.g. gid://shopify/MediaImage/123) to CDN URLs
+async function resolveFileGids(env, gids) {
+  if (!gids.length) return {};
+  const query = `
+    query ResolveFiles($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        id
+        ... on MediaImage { image { url } }
+        ... on GenericFile { url }
+      }
+    }
+  `;
+  try {
+    const data = await shopifyGraphQL(env, query, { ids: gids });
+    const out = {};
+    for (const node of (data?.nodes || [])) {
+      if (node?.id) out[node.id] = node.image?.url || node.url || null;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// Build key→value map; automatically resolves file_reference GIDs to CDN URLs
+async function metafieldsToMap(env, metafields = []) {
   const map = {};
+  const gidEntries = [];
   for (const m of metafields) {
-    map[m.key] = m.value;
+    if (m.type === 'file_reference' && typeof m.value === 'string' && m.value.startsWith('gid://')) {
+      gidEntries.push({ key: m.key, gid: m.value });
+    } else {
+      map[m.key] = m.value;
+    }
+  }
+  if (gidEntries.length) {
+    const resolved = await resolveFileGids(env, gidEntries.map(e => e.gid));
+    for (const { key, gid } of gidEntries) {
+      if (resolved[gid]) map[key] = resolved[gid]; // skip unresolvable GIDs
+    }
   }
   return map;
 }
@@ -133,7 +169,7 @@ async function handleGetLabels(env, origin) {
   const metafieldResults = await Promise.all(
     products.map(p =>
       shopifyRest(env, `products/${p.id}/metafields.json?namespace=custom&limit=250`)
-        .then(r => ({ id: p.id, metafields: metafieldsToMap(r.metafields) }))
+        .then(async r => ({ id: p.id, metafields: await metafieldsToMap(env, r.metafields) }))
         .catch(() => ({ id: p.id, metafields: {} })),
     ),
   );
@@ -160,7 +196,7 @@ async function handleGetLabel(env, productId, origin) {
     id: String(p.id),
     title: p.title,
     thumbnail: p.images?.[0]?.src || null,
-    metafields: metafieldsToMap(metafieldData.metafields || []),
+    metafields: await metafieldsToMap(env, metafieldData.metafields || []),
   }, 200, origin);
 }
 
