@@ -46,7 +46,7 @@ async function shopifyRest(env, path, options = {}) {
   const res = await fetch(url, {
     ...options,
     headers: {
-      'X-Shopify-Access-Token': env.SHOPIFY_TOKEN,
+      'X-Shopify-Access-Token': env.SHOPIFY_ACCESS_TOKEN,
       'Content-Type': 'application/json',
       'User-Agent': 'TNC-Label-Editor/1.0',
       ...(options.headers || {}),
@@ -64,7 +64,7 @@ async function shopifyGraphQL(env, query, variables = {}) {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      'X-Shopify-Access-Token': env.SHOPIFY_TOKEN,
+      'X-Shopify-Access-Token': env.SHOPIFY_ACCESS_TOKEN,
       'Content-Type': 'application/json',
       'User-Agent': 'TNC-Label-Editor/1.0',
     },
@@ -349,7 +349,7 @@ export default {
         return json({
           SHOPIFY_STORE_DOMAIN: env.SHOPIFY_STORE_DOMAIN || '(not set)',
           SHOPIFY_API_VERSION: env.SHOPIFY_API_VERSION || '(not set)',
-          SHOPIFY_TOKEN_PREFIX: env.SHOPIFY_TOKEN ? env.SHOPIFY_TOKEN.slice(0, 10) + '…' : '(not set)',
+          SHOPIFY_TOKEN_PREFIX: env.SHOPIFY_ACCESS_TOKEN ? env.SHOPIFY_ACCESS_TOKEN.slice(0, 10) + '…' : '(not set)',
           COLLECTION_ID: env.COLLECTION_ID || '(not set)',
           test_url: `https://${env.SHOPIFY_STORE_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/products.json?limit=1`,
         }, 200, origin);
