@@ -80,13 +80,17 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
   const handleSaveToShopify = async () => {
     if (!linkedProductId) return;
 
-    // Upload any overlay images that are still local blob: or data: URLs
+    // Returns true for any URL that isn't already a permanent Shopify CDN URL.
+    // This catches blob:, data:, and staged storage.googleapis.com URLs from old saves.
+    const needsUpload = (url) => !!url && !url.startsWith('https://cdn.shopify.com');
+
+    // Upload any overlay images that aren't already on the CDN
     const overlayZones = useStore.getState().zones.filter(z => z.type === 'overlay' && z.visible && z.imageUrl);
     for (const zone of overlayZones) {
-      if (zone.imageUrl.startsWith('blob:') || zone.imageUrl.startsWith('data:')) {
+      if (needsUpload(zone.imageUrl)) {
         try {
           let file;
-          if (zone.imageUrl.startsWith('blob:')) {
+          if (zone.imageUrl.startsWith('blob:') || zone.imageUrl.startsWith('https://')) {
             const res = await fetch(zone.imageUrl);
             const blob = await res.blob();
             file = new File([blob], 'overlay.png', { type: blob.type || 'image/png' });
@@ -118,13 +122,13 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
       }
     }
 
-    // Upload the base layer image if it's still a local blob: or data: URL
+    // Upload the base layer image if it's not already on the CDN
     let baseImageError = null;
     const currentBaseImage = useStore.getState().baseImage;
-    if (currentBaseImage && (currentBaseImage.startsWith('blob:') || currentBaseImage.startsWith('data:'))) {
+    if (needsUpload(currentBaseImage)) {
       try {
         let file;
-        if (currentBaseImage.startsWith('blob:')) {
+        if (currentBaseImage.startsWith('blob:') || currentBaseImage.startsWith('https://')) {
           const res = await fetch(currentBaseImage);
           const blob = await res.blob();
           file = new File([blob], 'base-image.jpg', { type: blob.type || 'image/jpeg' });

@@ -18,8 +18,8 @@ export function buildMetafields(state) {
   add('canvas_height', canvas.h);
   add('placid_template_id', placidTemplateId);
 
-  // Base layer image — only if it's a CDN URL (not a blob or base64 URL)
-  if (baseImage && baseImage.startsWith('https://')) {
+  // Base layer image — only permanent Shopify CDN URLs (not staged or blob URLs)
+  if (baseImage && baseImage.startsWith('https://cdn.shopify.com')) {
     add('base_layer_image', baseImage);
   }
 
@@ -51,7 +51,7 @@ export function buildMetafields(state) {
     add(`overlay_zone_${n}_width`, pct(zone.w, canvas.w));
     add(`overlay_zone_${n}_height`, pct(zone.h, canvas.h));
     add(`overlay_zone_${n}_rotation`, zone.rotation || 0);
-    if (zone.imageUrl && zone.imageUrl.startsWith('https://')) {
+    if (zone.imageUrl && zone.imageUrl.startsWith('https://cdn.shopify.com')) {
       add(`overlay_zone_${n}_image`, zone.imageUrl);
     }
   });
@@ -79,8 +79,8 @@ export function buildMetafields(state) {
     add(`text_zone_${n}_vertical_anchor`, zone.verticalAnchor || 'middle');
     add(`text_zone_${n}_resizing`, zone.resizing || 'Fitty');
     add(`text_zone_${n}_placid_layer`, zone.placidLayerName || '');
-    // Font URL — only CDN URLs (not base64 data URLs)
-    if (zone.fontUrl && zone.fontUrl.startsWith('https://')) {
+    // Font URL — only permanent Shopify CDN URLs
+    if (zone.fontUrl && zone.fontUrl.startsWith('https://cdn.shopify.com')) {
       add(`text_zone_${n}_font_url`, zone.fontUrl);
     }
   });
