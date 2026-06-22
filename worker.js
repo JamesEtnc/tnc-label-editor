@@ -217,13 +217,13 @@ async function handlePutLabel(env, productId, body, origin) {
     }
   `;
 
-  const prepared = incoming.map(mf => ({
-    ownerId: gid,
-    namespace: mf.namespace || 'custom',
-    key: mf.key,
-    value: String(mf.value),
-    type: mf.type || 'single_line_text_field',
-  }));
+  const prepared = incoming.map(mf => {
+    const type = mf.type || 'single_line_text_field';
+    let value = String(mf.value);
+    // Shopify rejects newlines in single_line_text_field (e.g. multi-line sample text)
+    if (type === 'single_line_text_field') value = value.replace(/[\r\n]+/g, ' ').trim();
+    return { ownerId: gid, namespace: mf.namespace || 'custom', key: mf.key, value, type };
+  });
 
   const skipped = [];
   for (let i = 0; i < prepared.length; i += 25) {
