@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import ProductPickerModal from './ProductPickerModal';
+import ZoneSetupModal from './ZoneSetupModal';
 
 // ── Mini canvas thumbnail ─────────────────────────────────────────────────────
 
@@ -167,6 +168,7 @@ export default function Dashboard({ onEdit, onNew }) {
   const [designs, setDesigns] = useState({});
   // Product picker state
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [zoneSetupOpen, setZoneSetupOpen] = useState(false);
   const [pendingNav, setPendingNav] = useState(null); // { type: 'new' } | { type: 'edit', name: string }
 
   const reload = useCallback(() => {
@@ -199,10 +201,17 @@ export default function Dashboard({ onEdit, onNew }) {
   const handlePickerComplete = () => {
     setPickerOpen(false);
     if (pendingNav?.type === 'new') {
-      onNew();
+      // Show zone setup before opening the editor for new templates
+      setZoneSetupOpen(true);
     } else {
       onEdit(pendingNav?.name || '');
+      setPendingNav(null);
     }
+  };
+
+  const handleZoneSetupComplete = () => {
+    setZoneSetupOpen(false);
+    onNew();
     setPendingNav(null);
   };
 
@@ -311,6 +320,11 @@ export default function Dashboard({ onEdit, onNew }) {
           showSkip={true}
           skipLabel="Skip — don't link to Shopify"
         />
+      )}
+
+      {/* Zone setup modal — shown after product picker for new templates */}
+      {zoneSetupOpen && (
+        <ZoneSetupModal onComplete={handleZoneSetupComplete} />
       )}
     </div>
   );
