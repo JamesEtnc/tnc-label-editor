@@ -33,6 +33,7 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
   const [saveFlash, setSaveFlash] = useState(false);
   const [shopifyFlash, setShopifyFlash] = useState(false);
   const [baseUploading, setBaseUploading] = useState(false);
+  const [baseLocalOnly, setBaseLocalOnly] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
   const handleBaseUpload = async (e) => {
@@ -40,6 +41,7 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
     if (!file) return;
     e.target.value = '';
     setBaseUploading(true);
+    setBaseLocalOnly(false);
     try {
       const result = await uploadFile(file);
       if (result?.url) {
@@ -48,9 +50,10 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
         return;
       }
     } catch {
-      // fall through to local blob URL
+      // CDN upload failed — store locally and warn the user
     }
     setBaseUploading(false);
+    setBaseLocalOnly(true);
     setBaseImage(URL.createObjectURL(file));
   };
 
@@ -94,7 +97,8 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
       }
     }
 
-    // Upload the base layer image if it's a blob: or data: URL
+    // Upload the base layer image if it's still a local blob: or data: URL
+    let baseImageError = null;
     const currentBaseImage = useStore.getState().baseImage;
     if (currentBaseImage && (currentBaseImage.startsWith('blob:') || currentBaseImage.startsWith('data:'))) {
       try {
@@ -107,9 +111,12 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
           file = base64DataUrlToFile(currentBaseImage, 'base-image');
         }
         const result = await uploadFile(file);
-        if (result?.url) setBaseImage(result.url);
-      } catch {
-        // Continue with save — base layer just won't be in metafields
+        if (result?.url) {
+          setBaseImage(result.url);
+          setBaseLocalOnly(false);
+        }
+      } catch (err) {
+        baseImageError = err.message;
       }
     }
 
@@ -121,6 +128,9 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
       setLastSavedAt(Date.now());
       setShopifyFlash(true);
       setTimeout(() => setShopifyFlash(false), 2000);
+      if (baseImageError) {
+        alert(`Label saved to Shopify ✓\n\nBase image could not be uploaded to CDN:\n${baseImageError}\n\nRe-upload the base image and save again to include it.`);
+      }
     } catch (err) {
       alert('Save to Shopify failed: ' + err.message);
     } finally {
@@ -237,11 +247,14 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
         <button
           onClick={() => fileRef.current.click()}
           disabled={baseUploading}
+          title={baseLocalOnly ? 'CDN upload failed — image is only stored locally and will not save to Shopify. Click to retry.' : 'Upload base layer image'}
           className={`px-2 py-1 rounded text-xs text-white transition-colors ${
-            baseUploading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600'
+            baseUploading ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            : baseLocalOnly ? 'bg-amber-700 hover:bg-amber-600'
+            : 'bg-gray-700 hover:bg-gray-600'
           }`}
         >
-          {baseUploading ? 'Uploading…' : 'Upload Base'}
+          {baseUploading ? 'Uploading…' : baseLocalOnly ? '⚠ Base (local only)' : 'Upload Base'}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleBaseUpload} />
 
