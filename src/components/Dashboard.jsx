@@ -181,8 +181,13 @@ export default function Dashboard({ onEdit, onNew }) {
 
   const handleEdit = (name) => {
     loadDesign(name);
-    setPendingNav({ type: 'edit', name });
-    setPickerOpen(true);
+    // If the design already has a linked product, go straight to the editor
+    if (useStore.getState().linkedProductId) {
+      onEdit(name);
+    } else {
+      setPendingNav({ type: 'edit', name });
+      setPickerOpen(true);
+    }
   };
 
   const handleNew = () => {
