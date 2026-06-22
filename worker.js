@@ -262,6 +262,9 @@ async function handleUploadFile(env, request, origin) {
   const isImage = mimeType.startsWith('image/');
   const resource = isImage ? 'IMAGE' : 'FILE';
 
+  // Read bytes first — needed for fileSize param and S3 upload
+  const fileBytes = await file.arrayBuffer();
+
   // Step 1: Request staged upload target from Shopify
   const stagedQuery = `
     mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
@@ -281,6 +284,7 @@ async function handleUploadFile(env, request, origin) {
       filename,
       mimeType,
       httpMethod: 'POST',
+      fileSize: String(fileBytes.byteLength),
     }],
   });
 
@@ -292,13 +296,11 @@ async function handleUploadFile(env, request, origin) {
 
   const { url: s3Url, resourceUrl, parameters } = targets[0];
 
-  // Step 2: Upload to S3
+  // Step 2: Upload to S3 (file must be last)
   const s3Form = new FormData();
   for (const param of parameters) {
     s3Form.append(param.name, param.value);
   }
-  // File MUST be last in S3 multipart upload
-  const fileBytes = await file.arrayBuffer();
   s3Form.append('file', new Blob([fileBytes], { type: mimeType }), filename);
 
   const s3Res = await fetch(s3Url, { method: 'POST', body: s3Form });
@@ -312,8 +314,8 @@ async function handleUploadFile(env, request, origin) {
     mutation fileCreate($files: [FileCreateInput!]!) {
       fileCreate(files: $files) {
         files {
-          ... on MediaImage { id image { url } }
-          ... on GenericFile { id url }
+          ... on MediaImage { id image { url } status }
+          ... on GenericFile { id url status }
         }
         userErrors { field message }
       }
@@ -329,10 +331,37 @@ async function handleUploadFile(env, request, origin) {
     throw new Error(`fileCreate failed: ${JSON.stringify(errs)}`);
   }
 
-  const created = files[0];
-  const cdnUrl = created.image?.url || created.url || resourceUrl;
+  const fileId = files[0].id;
 
-  return json({ url: cdnUrl }, 200, origin);
+  // Step 4: Poll until Shopify has processed the file and returned a permanent CDN URL.
+  // fileCreate returns immediately with a staged URL; the real cdn.shopify.com URL
+  // is only available once status === READY.
+  const pollQuery = `
+    query getFile($id: ID!) {
+      node(id: $id) {
+        ... on MediaImage { id image { url } status }
+        ... on GenericFile { id url status }
+      }
+    }
+  `;
+
+  let cdnUrl = null;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const pollData = await shopifyGraphQL(env, pollQuery, { id: fileId });
+      const node = pollData?.node;
+      const url = node?.image?.url || node?.url || null;
+      if (node?.status === 'READY' && url?.startsWith('https://cdn.shopify.com')) {
+        cdnUrl = url;
+        break;
+      }
+    } catch {
+      // continue polling
+    }
+  }
+
+  return json({ url: cdnUrl || resourceUrl }, 200, origin);
 }
 
 // ─── Main fetch handler ───────────────────────────────────────────────────────
