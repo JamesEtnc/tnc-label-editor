@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { generateOutput } from '../utils/generateOutput';
 import { uploadFile, saveLabel } from '../api/shopify';
 import { buildMetafields } from '../utils/buildMetafields';
+import { validateDesign, groupErrors } from '../utils/validateDesign';
 import ProductPickerModal from './ProductPickerModal';
 
 // Convert a base64 data URL back to a File object for uploading
@@ -35,6 +36,7 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
   const [baseUploading, setBaseUploading] = useState(false);
   const [baseLocalOnly, setBaseLocalOnly] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [validationErrors, setValidationErrors] = useState(null); // null = hidden, [] = shown
 
   const handleBaseUpload = async (e) => {
     const file = e.target.files[0];
@@ -79,6 +81,13 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
 
   const handleSaveToShopify = async () => {
     if (!linkedProductId) return;
+
+    // Validate all required fields before doing any uploads
+    const errors = validateDesign(useStore.getState(), currentDesignName);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
 
     // Returns true for any URL that isn't already a permanent Shopify CDN URL.
     // This catches blob:, data:, and staged storage.googleapis.com URLs from old saves.
@@ -348,6 +357,44 @@ export default function Toolbar({ currentDesignName, setCurrentDesignName, onBac
           Generate Output
         </button>
       </div>
+
+      {/* Validation error modal */}
+      {validationErrors && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-red-800 rounded-2xl p-6 w-[480px] max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-red-400 text-xl flex-shrink-0">⚠</span>
+              <div>
+                <h2 className="text-white font-bold text-base">Required fields missing</h2>
+                <p className="text-gray-400 text-xs mt-0.5">Fix the following before saving to Shopify.</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {groupErrors(validationErrors).map(([section, messages]) => (
+                <div key={section} className="bg-gray-800/60 rounded-lg px-4 py-3 border border-gray-700/50">
+                  <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">{section}</p>
+                  <ul className="space-y-1">
+                    {messages.map((msg, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-red-300">
+                        <span className="flex-shrink-0 mt-0.5">•</span>
+                        {msg}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setValidationErrors(null)}
+              className="mt-5 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              OK — I'll fix these
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Output modal */}
       {showOutput && (
